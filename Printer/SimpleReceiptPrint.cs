@@ -19,6 +19,23 @@ namespace Printer
                 this.receiptData = data;
                 this.config = ConfigManager.GetConfig();
                 
+                // If no printer name specified, try to use default printer
+                if (string.IsNullOrEmpty(printerName))
+                {
+                    printerName = config.PrinterName;
+                }
+                
+                // If still no printer name, use default system printer
+                if (string.IsNullOrEmpty(printerName))
+                {
+                    Console.WriteLine("Warning: No printer name specified, using system default");
+                    printerName = ""; // Empty string uses default printer
+                }
+                else
+                {
+                    Console.WriteLine("Attempting to print to: " + printerName);
+                }
+                
                 this.Print(printerName, this.PrintReceipt);
                 
                 if (data.OpenCashDrawer && config.EnableCashDrawer)
@@ -27,11 +44,23 @@ namespace Printer
                     // Cash drawer opening logic here
                 }
                 
+                Console.WriteLine("✓ Receipt printed successfully!");
                 return true;
             }
             catch (Exception ex)
             {
                 Console.WriteLine("Error printing receipt: " + ex.Message);
+                
+                // Provide more specific error information
+                if (ex.Message.Contains("Settings to access printer"))
+                {
+                    Console.WriteLine("Printer troubleshooting:");
+                    Console.WriteLine("1. Check if printer is powered on and connected");
+                    Console.WriteLine("2. Verify printer drivers are installed");
+                    Console.WriteLine("3. Try printing a test page from Windows");
+                    Console.WriteLine("4. Check if printer is set as default or available");
+                }
+                
                 return false;
             }
         }

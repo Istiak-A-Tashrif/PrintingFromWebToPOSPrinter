@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>POS Printer Test</title>
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 20px auto; padding: 20px; }
+        .section { margin: 20px 0; padding: 15px; border: 1px solid #ddd; border-radius: 5px; }
+        button { padding: 10px 15px; margin: 5px; background: #007cba; color: white; border: none; border-radius: 3px; cursor: pointer; }
+        button:hover { background: #005a87; }
+        textarea { width: 100%; height: 200px; margin: 10px 0; }
+        pre { background: #f5f5f5; padding: 10px; border-radius: 3px; overflow-x: auto; }
+        .success { color: green; }
+        .error { color: red; }
+    </style>
+</head>
+<body>
+    <h1>POS Receipt Printer - Web Integration Test</h1>
+    
+    <div class="section">
+        <h2>Server Status</h2>
+        <button onclick="checkStatus()">Check Status</button>
+        <button onclick="getConfig()">Get Configuration</button>
+        <div id="statusResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Update Store Configuration</h2>
+        <textarea id="configJson" placeholder="Enter store configuration JSON">
+{
+  "storeName": "My Pizza Restaurant", 
+  "address": "123 Main St, City, State 12345",
+  "phone": "(555) 123-4567",
+  "currency": "$"
+}</textarea>
+        <br>
+        <button onclick="updateConfig()">Update Configuration</button>
+        <div id="configResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Print Receipt Test</h2>
+        <textarea id="receiptJson" placeholder="Enter receipt JSON data">
+{
+  "orderId": "ORD-001",
+  "notes": "Thank you for your order!",
+  "subtotal": 25.50,
+  "tax": 2.04,
+  "total": 27.54,
+  "openCashDrawer": true
+}</textarea>
+        <br>
+        <button onclick="printReceipt()">Print Receipt</button>
+        <div id="printResult"></div>
+    </div>
+
+    <div class="section">
+        <h2>Advanced Receipt Example</h2>
+        <button onclick="printAdvancedReceipt()">Print Advanced Receipt</button>
+        <div id="advancedResult"></div>
+    </div>
+
+    <script>
+        const API_BASE = 'http://localhost:8080';
+
+        async function makeRequest(url, method = 'GET', data = null) {
+            try {
+                const options = {
+                    method: method,
+                    headers: {
+                        'Content-Type': 'application/json',
+                    }
+                };
+                
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                
+                const response = await fetch(url, options);
+                const result = await response.json();
+                return { success: response.ok, data: result };
+            } catch (error) {
+                return { success: false, error: error.message };
+            }
+        }
+
+        async function checkStatus() {
+            const result = await makeRequest(`${API_BASE}/status`);
+            const statusDiv = document.getElementById('statusResult');
+            
+            if (result.success) {
+                statusDiv.innerHTML = `<div class="success">✓ Server is running</div><pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+            } else {
+                statusDiv.innerHTML = `<div class="error">✗ Error: ${result.error || 'Server not responding'}</div>`;
+            }
+        }
+
+        async function getConfig() {
+            const result = await makeRequest(`${API_BASE}/config`);
+            const statusDiv = document.getElementById('statusResult');
+            
+            if (result.success) {
+                statusDiv.innerHTML = `<div class="success">✓ Configuration loaded</div><pre>${JSON.stringify(result.data, null, 2)}</pre>`;
+                document.getElementById('configJson').value = JSON.stringify(result.data, null, 2);
+            } else {
+                statusDiv.innerHTML = `<div class="error">✗ Error: ${result.error || 'Failed to load config'}</div>`;
+            }
+        }
+
+        async function updateConfig() {
+            try {
+                const configData = JSON.parse(document.getElementById('configJson').value);
+                const result = await makeRequest(`${API_BASE}/config`, 'POST', configData);
+                const configDiv = document.getElementById('configResult');
+                
+                if (result.success) {
+                    configDiv.innerHTML = `<div class="success">✓ Configuration updated successfully</div>`;
+                } else {
+                    configDiv.innerHTML = `<div class="error">✗ Error: ${result.data.error || 'Failed to update config'}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('configResult').innerHTML = `<div class="error">✗ Invalid JSON: ${error.message}</div>`;
+            }
+        }
+
+        async function printReceipt() {
+            try {
+                const receiptData = JSON.parse(document.getElementById('receiptJson').value);
+                const result = await makeRequest(`${API_BASE}/print`, 'POST', receiptData);
+                const printDiv = document.getElementById('printResult');
+                
+                if (result.success) {
+                    printDiv.innerHTML = `<div class="success">✓ Receipt printed successfully!</div>`;
+                } else {
+                    printDiv.innerHTML = `<div class="error">✗ Error: ${result.data.error || 'Failed to print'}</div>`;
+                }
+            } catch (error) {
+                document.getElementById('printResult').innerHTML = `<div class="error">✗ Invalid JSON: ${error.message}</div>`;
+            }
+        }
+
+        async function printAdvancedReceipt() {
+            const advancedReceipt = {
+                orderId: "ORD-" + Math.floor(Math.random() * 1000),
+                orderDate: new Date().toISOString(),
+                customer: {
+                    name: "John Doe",
+                    phone: "(555) 987-6543"
+                },
+                items: [
+                    {
+                        name: "Margherita Pizza",
+                        description: "Large, extra cheese",
+                        quantity: 1,
+                        price: 18.99,
+                        total: 18.99
+                    },
+                    {
+                        name: "Caesar Salad",
+                        description: "With grilled chicken",
+                        quantity: 1,
+                        price: 12.50,
+                        total: 12.50
+                    },
+                    {
+                        name: "Soft Drink",
+                        description: "Coca Cola",
+                        quantity: 2,
+                        price: 2.50,
+                        total: 5.00
+                    }
+                ],
+                subtotal: 36.49,
+                tax: 2.92,
+                discount: 0,
+                total: 39.41,
+                payment: {
+                    method: "Credit Card",
+                    amountPaid: 39.41,
+                    change: 0
+                },
+                notes: "Delivery: Leave at front door",
+                openCashDrawer: false
+            };
+
+            const result = await makeRequest(`${API_BASE}/print`, 'POST', advancedReceipt);
+            const advancedDiv = document.getElementById('advancedResult');
+            
+            if (result.success) {
+                advancedDiv.innerHTML = `<div class="success">✓ Advanced receipt printed successfully!</div><pre>${JSON.stringify(advancedReceipt, null, 2)}</pre>`;
+            } else {
+                advancedDiv.innerHTML = `<div class="error">✗ Error: ${result.data.error || 'Failed to print'}</div>`;
+            }
+        }
+
+        // Check server status on page load
+        window.onload = checkStatus;
+    </script>
+</body>
+</html>

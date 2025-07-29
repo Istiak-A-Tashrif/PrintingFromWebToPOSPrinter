@@ -13,9 +13,30 @@ namespace Printer
     {
       Console.WriteLine("=== POS Receipt Printer ===");
       
+      // Check for server mode
+      if (args != null && args.Length > 0 && args[0].ToLower() == "server")
+      {
+        StartHttpServer();
+        return;
+      }
+      
+      // Check for printer setup mode
+      if (args != null && args.Length > 0 && args[0].ToLower() == "setup")
+      {
+        PrinterUtility.CreateTestPrinterConfig();
+        return;
+      }
+      
+      // Check for list printers mode
+      if (args != null && args.Length > 0 && args[0].ToLower() == "printers")
+      {
+        PrinterUtility.ListAvailablePrinters();
+        return;
+      }
+      
       // Load config
       var config = ConfigManager.GetConfig();
-      Console.WriteLine("Configuration loaded. Press 'c' to configure, 't' to test, 'q' to quit, or provide order data:");
+      Console.WriteLine("Configuration loaded. Press 'c' to configure, 't' to test, 's' for HTTP server, 'p' for printers, 'q' to quit, or provide order data:");
       
       // If called with arguments (from custom protocol), handle receipt printing
       if (args != null && args.Length > 0)
@@ -45,13 +66,21 @@ namespace Printer
         {
           TestPrint(config);
         }
+        else if (input.ToLower() == "s")
+        {
+          StartHttpServer();
+        }
+        else if (input.ToLower() == "p")
+        {
+          PrinterUtility.ListAvailablePrinters();
+        }
         else if (input.StartsWith("print://") || input.StartsWith("{"))
         {
           HandlePrintRequest(input, config);
         }
         else
         {
-          Console.WriteLine("Commands: 'c' (configure), 't' (test), 'q' (quit)");
+          Console.WriteLine("Commands: 'c' (configure), 't' (test), 's' (server), 'p' (printers), 'q' (quit)");
           Console.WriteLine("Or provide JSON receipt data or print:// URL");
         }
       }
@@ -218,6 +247,30 @@ namespace Printer
       catch
       {
         return null;
+      }
+    }
+
+    private static void StartHttpServer()
+    {
+      try
+      {
+        HttpPrintServer server = new HttpPrintServer();
+        server.Start(8080);
+        
+        // Wait for quit command
+        while (true)
+        {
+          string input = Console.ReadLine();
+          if (input != null && input.ToLower() == "q")
+          {
+            server.Stop();
+            break;
+          }
+        }
+      }
+      catch (Exception ex)
+      {
+        Console.WriteLine("Error starting HTTP server: " + ex.Message);
       }
     }
   }

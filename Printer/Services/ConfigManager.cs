@@ -18,6 +18,11 @@ namespace Printer.Services
             return _config;
         }
 
+        public static void SetConfig(StoreConfig config)
+        {
+            _config = config;
+        }
+
         public static void LoadConfig()
         {
             try
@@ -98,6 +103,40 @@ namespace Printer.Services
         {
             _config = newConfig;
             SaveConfig();
+            Console.WriteLine("ConfigManager: Config updated and saved");
+            Console.WriteLine("ConfigManager: StoreName = " + _config.StoreName);
+            Console.WriteLine("ConfigManager: PrinterName = " + _config.PrinterName);
+        }
+
+        public static void UpdateFields(StoreConfig fieldsToUpdate)
+        {
+            if (_config == null)
+            {
+                LoadConfig();
+            }
+            
+            // Update fields regardless of empty/null status if they were provided
+            if (fieldsToUpdate.StoreName != null)
+                _config.StoreName = fieldsToUpdate.StoreName;
+            if (fieldsToUpdate.Address != null)
+                _config.Address = fieldsToUpdate.Address;
+            if (fieldsToUpdate.Phone != null)
+                _config.Phone = fieldsToUpdate.Phone;
+            if (fieldsToUpdate.Email != null)
+                _config.Email = fieldsToUpdate.Email;
+            if (fieldsToUpdate.LogoPath != null)
+                _config.LogoPath = fieldsToUpdate.LogoPath;
+            if (fieldsToUpdate.PrinterName != null)
+                _config.PrinterName = fieldsToUpdate.PrinterName;
+            if (fieldsToUpdate.Currency != null)
+                _config.Currency = fieldsToUpdate.Currency;
+            
+            SaveConfig();
+            Console.WriteLine("ConfigManager: Individual fields updated and saved");
+            Console.WriteLine("ConfigManager: StoreName = " + _config.StoreName);
+            Console.WriteLine("ConfigManager: Address = " + _config.Address);
+            Console.WriteLine("ConfigManager: Phone = " + _config.Phone);
+            Console.WriteLine("ConfigManager: Currency = " + _config.Currency);
         }
 
         private static StoreConfig CreateDefaultConfig()

@@ -13,11 +13,9 @@ namespace Printer
         private HttpListener listener;
         private bool isRunning;
         private Thread listenerThread;
-        private ConfigManager configManager;
 
         public HttpPrintServer()
         {
-            configManager = new ConfigManager();
         }
 
         public void Start(int port = 8080)
@@ -178,9 +176,16 @@ namespace Printer
 
                 // Print the receipt
                 SimpleReceiptPrint printer = new SimpleReceiptPrint();
-                printer.Print(receiptData);
+                bool success = printer.Print("", receiptData);
 
-                return "{\"success\":true,\"message\":\"Receipt printed successfully\"}";
+                if (success)
+                {
+                    return "{\"success\":true,\"message\":\"Receipt printed successfully\"}";
+                }
+                else
+                {
+                    return "{\"error\":\"Failed to print receipt\"}";
+                }
             }
             catch (Exception ex)
             {
@@ -190,7 +195,7 @@ namespace Printer
 
         private string HandleStatusRequest()
         {
-            StoreConfig config = configManager.LoadConfig();
+            StoreConfig config = ConfigManager.GetConfig();
             return string.Format("{{\"status\":\"running\",\"storeName\":\"{0}\",\"version\":\"1.0\"}}", 
                 config.StoreName.Replace("\"", "\\\""));
         }
@@ -199,7 +204,7 @@ namespace Printer
         {
             try
             {
-                StoreConfig config = configManager.LoadConfig();
+                StoreConfig config = ConfigManager.GetConfig();
                 return string.Format("{{\"storeName\":\"{0}\",\"address\":\"{1}\",\"phone\":\"{2}\",\"currency\":\"{3}\"}}",
                     config.StoreName.Replace("\"", "\\\""),
                     config.Address.Replace("\"", "\\\""),
@@ -223,17 +228,69 @@ namespace Printer
                     body = readStream.ReadToEnd();
                 }
 
-                StoreConfig config = ParseConfigJson(body);
-                if (config == null)
-                {
-                    return "{\"error\":\"Invalid JSON format\"}";
-                }
+                Console.WriteLine("Received config update: " + body);
 
-                configManager.SaveConfig(config);
+                // Create a config object with only the fields to update
+                StoreConfig updatedFields = new StoreConfig();
+                
+                string storeName = ExtractJsonString(body, "storeName");
+                if (storeName != null) {
+                    updatedFields.StoreName = storeName;
+                    Console.WriteLine("HTTP: Setting StoreName = " + storeName);
+                }
+                
+                string address = ExtractJsonString(body, "address");
+                if (address != null) {
+                    updatedFields.Address = address;
+                    Console.WriteLine("HTTP: Setting Address = " + address);
+                }
+                
+                string phone = ExtractJsonString(body, "phone");
+                if (phone != null) {
+                    updatedFields.Phone = phone;
+                    Console.WriteLine("HTTP: Setting Phone = " + phone);
+                }
+                
+                string email = ExtractJsonString(body, "email");
+                if (email != null) {
+                    updatedFields.Email = email;
+                    Console.WriteLine("HTTP: Setting Email = " + email);
+                }
+                
+                string logoPath = ExtractJsonString(body, "logoPath");
+                if (logoPath != null) {
+                    updatedFields.LogoPath = logoPath;
+                    Console.WriteLine("HTTP: Setting LogoPath = " + logoPath);
+                }
+                
+                string printerName = ExtractJsonString(body, "printerName");
+                if (printerName != null) {
+                    updatedFields.PrinterName = printerName;
+                    Console.WriteLine("HTTP: Setting PrinterName = " + printerName);
+                }
+                
+                string currency = ExtractJsonString(body, "currency");
+                if (currency != null) {
+                    updatedFields.Currency = currency;
+                    Console.WriteLine("HTTP: Setting Currency = " + currency);
+                }
+                
+                string enableCashDrawer = ExtractJsonString(body, "enableCashDrawer");
+                if (enableCashDrawer != null) {
+                    updatedFields.EnableCashDrawer = enableCashDrawer.ToLower() == "true";
+                    Console.WriteLine("HTTP: Setting EnableCashDrawer = " + enableCashDrawer);
+                }
+                
+                // Update only the provided fields
+                ConfigManager.UpdateFields(updatedFields);
+                
+                Console.WriteLine("HTTP Server: Config update completed");
+                
                 return "{\"success\":true,\"message\":\"Configuration updated successfully\"}";
             }
             catch (Exception ex)
             {
+                Console.WriteLine("Config update error: " + ex.Message);
                 return "{\"error\":\"" + ex.Message.Replace("\"", "\\\"") + "\"}";
             }
         }
@@ -241,15 +298,50 @@ namespace Printer
         private ReceiptData ParseReceiptJson(string json)
         {
             // Simple JSON parsing for .NET Framework 4.6.1 compatibility
-            // This is a basic implementation - in production you'd use a proper JSON library
             try
             {
+                Console.WriteLine("ParseReceiptJson: Starting to parse JSON: " + json.Substring(0, Math.Min(200, json.Length)) + "...");
+                
                 ReceiptData receipt = new ReceiptData();
                 
                 // Extract basic fields
-                receipt.OrderNumber = ExtractJsonString(json, "orderNumber");
-                receipt.StoreName = ExtractJsonString(json, "storeName");
+                receipt.OrderId = ExtractJsonString(json, "orderId");
                 receipt.Notes = ExtractJsonString(json, "notes");
+                
+                Console.WriteLine("ParseReceiptJson: OrderId = " + receipt.OrderId + ", Notes = " + receipt.Notes);
+                
+                // Extract customer info
+                string customerName = ExtractJsonString(json, "customer.name");
+                if (customerName == null)
+                {
+                    // Try nested customer object
+                    int customerStart = json.IndexOf("\"customer\"");
+                    if (customerStart > -1)
+                    {
+                        customerName = ExtractJsonString(json.Substring(customerStart), "name");
+                    }
+                }
+                
+                if (!string.IsNullOrEmpty(customerName))
+                {
+                    receipt.Customer = new CustomerInfo { Name = customerName };
+                    
+                    string customerPhone = ExtractJsonString(json, "customer.phone");
+                    if (customerPhone == null)
+                    {
+                        int customerStart = json.IndexOf("\"customer\"");
+                        if (customerStart > -1)
+                        {
+                            customerPhone = ExtractJsonString(json.Substring(customerStart), "phone");
+                        }
+                    }
+                    if (!string.IsNullOrEmpty(customerPhone))
+                    {
+                        receipt.Customer.Phone = customerPhone;
+                    }
+                    
+                    Console.WriteLine("ParseReceiptJson: Customer = " + customerName + ", Phone = " + customerPhone);
+                }
                 
                 // Extract decimal values
                 string subtotalStr = ExtractJsonString(json, "subtotal");
@@ -274,6 +366,109 @@ namespace Printer
                     decimal total;
                     if (decimal.TryParse(totalStr, out total))
                         receipt.Total = total;
+                }
+                
+                string discountStr = ExtractJsonString(json, "discount");
+                if (!string.IsNullOrEmpty(discountStr))
+                {
+                    decimal discount;
+                    if (decimal.TryParse(discountStr, out discount))
+                        receipt.Discount = discount;
+                }
+                
+                // Extract payment info
+                int paymentStart = json.IndexOf("\"payment\"");
+                if (paymentStart > -1)
+                {
+                    string paymentSection = json.Substring(paymentStart);
+                    string paymentMethod = ExtractJsonString(paymentSection, "method");
+                    if (!string.IsNullOrEmpty(paymentMethod))
+                    {
+                        receipt.Payment = new PaymentInfo { Method = paymentMethod };
+                        
+                        string amountPaidStr = ExtractJsonString(paymentSection, "amountPaid");
+                        if (!string.IsNullOrEmpty(amountPaidStr))
+                        {
+                            decimal amountPaid;
+                            if (decimal.TryParse(amountPaidStr, out amountPaid))
+                                receipt.Payment.AmountPaid = amountPaid;
+                        }
+                        
+                        string changeStr = ExtractJsonString(paymentSection, "change");
+                        if (!string.IsNullOrEmpty(changeStr))
+                        {
+                            decimal change;
+                            if (decimal.TryParse(changeStr, out change))
+                                receipt.Payment.Change = change;
+                        }
+                    }
+                }
+                
+                // Extract items array (basic parsing)
+                int itemsStart = json.IndexOf("\"items\"");
+                if (itemsStart > -1)
+                {
+                    string itemsSection = json.Substring(itemsStart);
+                    int arrayStart = itemsSection.IndexOf("[");
+                    int arrayEnd = itemsSection.IndexOf("]");
+                    
+                    if (arrayStart > -1 && arrayEnd > arrayStart)
+                    {
+                        string itemsArray = itemsSection.Substring(arrayStart + 1, arrayEnd - arrayStart - 1);
+                        // Simple item parsing - split by objects
+                        string[] itemObjects = itemsArray.Split(new string[] { "},{" }, StringSplitOptions.RemoveEmptyEntries);
+                        
+                        foreach (string itemObj in itemObjects)
+                        {
+                            string cleanItemObj = itemObj.Replace("{", "").Replace("}", "");
+                            
+                            string itemName = ExtractJsonString("{" + cleanItemObj + "}", "name");
+                            string qtyStr = ExtractJsonString("{" + cleanItemObj + "}", "quantity");
+                            string priceStr = ExtractJsonString("{" + cleanItemObj + "}", "price");
+                            string totalStr2 = ExtractJsonString("{" + cleanItemObj + "}", "total");
+                            
+                            if (!string.IsNullOrEmpty(itemName))
+                            {
+                                ReceiptItem item = new ReceiptItem { Name = itemName };
+                                
+                                if (!string.IsNullOrEmpty(qtyStr))
+                                {
+                                    int qty;
+                                    if (int.TryParse(qtyStr, out qty))
+                                        item.Quantity = qty;
+                                }
+                                
+                                if (!string.IsNullOrEmpty(priceStr))
+                                {
+                                    decimal price;
+                                    if (decimal.TryParse(priceStr, out price))
+                                        item.Price = price;
+                                }
+                                
+                                if (!string.IsNullOrEmpty(totalStr2))
+                                {
+                                    decimal total2;
+                                    if (decimal.TryParse(totalStr2, out total2))
+                                        item.Total = total2;
+                                }
+                                else
+                                {
+                                    item.Total = item.Quantity * item.Price;
+                                }
+                                
+                                receipt.Items.Add(item);
+                            }
+                        }
+                    }
+                }
+                
+                // Extract openCashDrawer
+                string openCashDrawerStr = ExtractJsonString(json, "openCashDrawer");
+                if (!string.IsNullOrEmpty(openCashDrawerStr))
+                {
+                    bool openCashDrawer;
+                    if (bool.TryParse(openCashDrawerStr, out openCashDrawer))
+                        receipt.OpenCashDrawer = openCashDrawer;
                 }
 
                 return receipt;
@@ -304,21 +499,46 @@ namespace Printer
 
         private string ExtractJsonString(string json, string key)
         {
-            string pattern = "\"" + key + "\"\\s*:\\s*\"";
-            int startIndex = json.IndexOf(pattern);
-            if (startIndex == -1) return null;
-
-            startIndex += pattern.Length;
-            int endIndex = json.IndexOf("\"", startIndex);
-            
-            while (endIndex > startIndex && json[endIndex - 1] == '\\')
+            try
             {
-                endIndex = json.IndexOf("\"", endIndex + 1);
+                string pattern = "\"" + key + "\"";
+                int keyIndex = json.IndexOf(pattern);
+                if (keyIndex == -1) 
+                {
+                    Console.WriteLine("ExtractJsonString: Key '" + key + "' not found in JSON");
+                    return null;
+                }
+
+                int colonIndex = json.IndexOf(":", keyIndex);
+                if (colonIndex == -1) 
+                {
+                    Console.WriteLine("ExtractJsonString: Colon not found after key '" + key + "'");
+                    return null;
+                }
+
+                int startQuoteIndex = json.IndexOf("\"", colonIndex);
+                if (startQuoteIndex == -1) 
+                {
+                    Console.WriteLine("ExtractJsonString: Start quote not found for key '" + key + "'");
+                    return null;
+                }
+
+                int endQuoteIndex = json.IndexOf("\"", startQuoteIndex + 1);
+                if (endQuoteIndex == -1) 
+                {
+                    Console.WriteLine("ExtractJsonString: End quote not found for key '" + key + "'");
+                    return null;
+                }
+
+                string value = json.Substring(startQuoteIndex + 1, endQuoteIndex - startQuoteIndex - 1);
+                Console.WriteLine("ExtractJsonString: " + key + " = '" + value + "'");
+                return value;
             }
-
-            if (endIndex == -1) return null;
-
-            return json.Substring(startIndex, endIndex - startIndex);
+            catch (Exception ex)
+            {
+                Console.WriteLine("ExtractJsonString error for key '" + key + "': " + ex.Message);
+                return null;
+            }
         }
     }
 }

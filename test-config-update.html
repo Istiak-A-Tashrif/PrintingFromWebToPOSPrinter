@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Config Update</title>
+</head>
+<body>
+    <h1>Test Config Update</h1>
+    
+    <button onclick="testConfigUpdate()">Test Config Update</button>
+    <button onclick="testAdvancedReceipt()">Test Advanced Receipt</button>
+    
+    <div id="result"></div>
+    
+    <script>
+        async function testConfigUpdate() {
+            const config = {
+                storeName: "Updated Store Name",
+                address: "123 Updated Street",
+                phone: "555-0123",
+                email: "updated@store.com",
+                currency: "€"
+            };
+            
+            try {
+                const response = await fetch('http://localhost:8080/update-config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(config)
+                });
+                
+                const result = await response.text();
+                document.getElementById('result').innerHTML = '<h3>Config Update Result:</h3><pre>' + result + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3><pre>' + error + '</pre>';
+            }
+        }
+        
+        async function testAdvancedReceipt() {
+            const receipt = {
+                orderId: "ORD-12345",
+                customer: {
+                    name: "John Doe",
+                    phone: "555-1234"
+                },
+                items: [
+                    {
+                        name: "Pizza Margherita",
+                        quantity: 2,
+                        price: 12.99,
+                        total: 25.98
+                    },
+                    {
+                        name: "Coca Cola",
+                        quantity: 1,
+                        price: 2.50,
+                        total: 2.50
+                    }
+                ],
+                subtotal: 28.48,
+                tax: 2.28,
+                discount: 0.00,
+                total: 30.76,
+                payment: {
+                    method: "Cash",
+                    amountPaid: 35.00,
+                    change: 4.24
+                },
+                notes: "Extra cheese on pizza",
+                openCashDrawer: true
+            };
+            
+            try {
+                const response = await fetch('http://localhost:8080/print', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(receipt)
+                });
+                
+                const result = await response.text();
+                document.getElementById('result').innerHTML = '<h3>Print Result:</h3><pre>' + result + '</pre>';
+            } catch (error) {
+                document.getElementById('result').innerHTML = '<h3>Error:</h3><pre>' + error + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>
