@@ -28,52 +28,52 @@ namespace Printer
     {
       float y = 0;
 
-      using (Image logoImage = Image.FromFile(@"C:\<Path to your application>\pizzarium_printable.png"))
+      using (Image logoImage = Image.FromFile(@"C:\projects\PrintingFromWebToPOSPrinter\pizzarium_printable.png"))
         g.DrawImage(logoImage, 0, 0, 40, 18);
 
       y += 18; // Image logo height
       y += 10; // Empty line
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Order ID", 0.8f, fontSize: 14f),
+        new TextColumn("Order ID", 0.8f, fontSize: 14f),
         new TextColumn(this.orderId, 0.2f, StringAlignment.Far, 14f)
       );
 
       y += 10; // Empty line
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Margarita pizza\r\n1×10.00", 0.8f),
+        new TextColumn("Margarita pizza\r\n1×10.00", 0.8f),
         new TextColumn(10f.ToString("0.00"), 0.2f, StringAlignment.Far)
       );
 
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Neapolitan pizza\r\n2×12.50", 0.8f),
+        new TextColumn("Neapolitan pizza\r\n2×12.50", 0.8f),
         new TextColumn(25f.ToString("0.00"), 0.2f, StringAlignment.Far)
       );
 
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Cola\r\n1×5.00", 0.8f),
+        new TextColumn("Cola\r\n1×5.00", 0.8f),
         new TextColumn(5f.ToString("0.00"), 0.2f, StringAlignment.Far)
       );
 
       y += 10; // Empty line
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Subtotal", 0.8f),
+        new TextColumn("Subtotal", 0.8f),
         new TextColumn(40f.ToString("0.00"), 0.2f, StringAlignment.Far)
       );
 
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Discount", 0.8f),
+        new TextColumn("Discount", 0.8f),
         new TextColumn(0f.ToString("0.00"), 0.2f, StringAlignment.Far)
       );
 
       y += this.DrawTextColumns(
         g, y,
-        new TextColumn($"Total", 0.8f, fontSize: 14f),
+        new TextColumn("Total", 0.8f, fontSize: 14f),
         new TextColumn(40f.ToString("0.00"), 0.2f, StringAlignment.Far, 14f)
       );
     }

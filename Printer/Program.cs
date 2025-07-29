@@ -10,9 +10,12 @@ namespace Printer
     static void Main(string[] args)
     {
       if (args == null || args.Length == 0)
+      {
         Console.WriteLine("Order ID is not specified.");
+        return;
+      }
 
-      new ReceiptPrint().Print("XP-80", args[0].Replace("print://", string.Empty).Replace("/", string.Empty));
+      new ReceiptPrint().Print("RONGTA 80mm Series Printer", args[0].Replace("print://", string.Empty).Replace("/", string.Empty));
     }
   }
 }
